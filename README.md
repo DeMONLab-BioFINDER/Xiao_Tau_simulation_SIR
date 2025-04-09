@@ -167,7 +167,7 @@ Contributions and suggestions are welcome! Please open an issue or submit a pull
 * [Shafiei, G. et al., (2023).](https://academic.oup.com/brain/article/146/1/321/6533638) Network structure and transcriptomic vulnerability shape atrophy in frontotemporal dementia. Brain.
 
 ## Contact
-For any questions or inquiries, please contact: caly.xiaoyu@gmail.com
+For any questions or inquiries, please contact [@xiaoyucaly](https://github.com/xiaoyucaly): caly.xiaoyu@gmail.com
 
 ## License
 You can use, share, and adapt the code as long as you give proper credit and notify the author.
