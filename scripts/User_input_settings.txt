@@ -1,0 +1,5 @@
+model_name = "Your_model_name"
+input_data_name = "Input_SIR_example.pkl"
+epicenter_list = "ctx_lh_entorhinal"
+simulated_protein = "tau"
+data_type = "Presence"
