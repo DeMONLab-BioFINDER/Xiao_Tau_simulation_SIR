@@ -4,7 +4,7 @@
 
 This repository contains Python code for an agent-based Susceptible-Infectious-Recovered (SIR) model designed to simulate tau propagation in Alzheimer’s disease.
 
-Our model builds upon the original [SIR simulator](https://github.com/yingqiuz/SIR_simulator) by <u>Ying-Qiu Zheng</u>. This mechanistic framework simulates both **connectome-based spread** and **regional vulnerability** across brain regions, enabling in silico testing of distinct pathophysiological mechanisms via tunable regional parameters affecting tau *synthesis* and *clearance*.
+Our model builds upon the original [SIR simulator](https://github.com/yingqiuz/SIR_simulator) by <u>Ying-Qiu Zheng</u>. This mechanistic framework simulates based on both **connectome-based spread** and **regional vulnerability** across brain regions, enabling in silico testing of distinct pathophysiological mechanisms via tunable regional parameters affecting tau *synthesis* and *clearance*.
 
 ### Key Enhancements
 We extend the original SIR framework to allow **regional vulnerability** not only modify tau synthesis and clearance, but also tau *spread* and *misfolding* rates. This refined model allows for more realistic simulations of disease progression.
