@@ -1,6 +1,6 @@
 # Simulation tau propatation in the brain using the SIR model
 
-**Preprint:** Available on [arXiv](https://arxiv.org/abs/XXXX.XXXX).
+**Preprint:** Available on [arXiv](https://www.biorxiv.org/content/10.1101/2025.04.17.648358v1).
 
 This repository contains Python code for an agent-based Susceptible-Infectious-Recovered (SIR) model designed to simulate tau propagation in Alzheimer’s disease.
 
