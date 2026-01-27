@@ -123,7 +123,7 @@ def run_model(args):
 
     if args.return_flag:
         results_tmp["index_tau_to_conn"] = init_vars["index_tau_to_conn"]
-        return sim_results.simulated_data, init_vars["tau"], results_tmp
+        return sim_results.simulated_data, init_vars["tau"], {**results, **results_tmp}
 
 
 def main():

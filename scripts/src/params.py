@@ -61,6 +61,7 @@ def parse_arguments(hypertune=False):
     parser.add_argument('--regional_variable_file', type=str, default=essential_params.get("regional_variable_file", "regional_vulnerability_example.csv"), help='Input path of regional vulnerability for `spread_var`, `synthesis_var`, `misfold_var`, or `clearance_var`. MUST CHANGE together with rates.')
     parser.add_argument('--connectivity_file', type=str, default=essential_params.get("connectivity_file", "Connectomes_all.pkl"), help='File containing all possible connectivity matrices that could be used as `SC_len`')
     parser.add_argument('--SC', type=str, default=essential_params.get("SC", None), help='connectivity name in `connectivity_file`. If this exists, will use this to replace data["conn"] (loaded from `input_data_name`), and use as `SC_len` of simualtion')
+    parser.add_argument('--individual_data_file', type=str, default=essential_params.get("individual_data_file", "data_individual.pkl"), help='File containing data for each subject, tau, conn, ...')
 
     # Simulation essential input parameters
     # =====================================
@@ -88,6 +89,10 @@ def parse_arguments(hypertune=False):
     parser.add_argument('--init_number', type=int, default=essential_params.get("init_number", 1), help='Initial quantity of misfolded protein in epicenter')
     parser.add_argument('--T_total', type=int, default=essential_params.get("T_total", 30000), help='Total time steps for simulation')
     parser.add_argument('--dt', type=float, default=essential_params.get("dt", 0.1), help='Time step size, not equal to real world time')
+    
+    # Simulation for individual subjects
+    # ==========================
+    parser.add_argument('--subject_id', type=str, default=essential_params.get("subject_id", 'subj_001'), help='Subject ID for individualized simulation')
 
     ##########################################
     # All the following arguments CAN NOT be specified using `User_input_settings.txt` file
@@ -156,7 +161,7 @@ def make_output_dir(args, proj_path, script_path, hypertune):
                 args.model_name += "_" + regional_name
 
     # Construct output path
-    args.output_path = os.path.join(proj_path, "results", args.simulated_protein, args.data_type, tune_folder, epi, args.model_name + "_" + args.output_date_time)
+    args.output_path = os.path.join(proj_path, "results", args.simulated_protein, args.protein_type, tune_folder, epi, args.model_name + "_" + args.output_date_time)
 
     # Create output directory
     os.makedirs(args.output_path, exist_ok=True)

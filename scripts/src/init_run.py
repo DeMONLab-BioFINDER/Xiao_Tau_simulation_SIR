@@ -34,21 +34,6 @@ def initialize_run(args):
     attributes needed for the simulation. These include connectivity matrices, region names, ROI sizes,
     indices to match tau with connectivity, and other regional variables.
 
-    Args:
-        args (Namespace): Command-line arguments and configuration parameters, loaded from params.py. Expected attributes include:
-            - input_path (str): Path to the folder containing the input data files.
-            - input_data_name (str): Filename for the input data (torch file).
-            - subtype (int): Subtype index; if >= 0, specific tau values are loaded.
-            - SC (str or None): Key to select an alternative connectivity matrix.
-            - connectivity_file (str): Filename for the connectivity matrix.
-            - regional_variable_file (str): Filename for the CSV file containing gene/regional variables.
-            - same_ROI_size (str or None): If specified, forces a uniform ROI size (e.g., 'mean' or a specific number).
-            - return_interm_results (bool): Flag indicating whether to return intermediate results.
-            - interm_variabels (str): Comma-separated string of intermediate variable names.
-            - Rnor0 (str or None): Indicator for initializing Rnor0.
-            - no_norm_spread (bool): Flag to disable normal protein spread.
-            - epicenter_list (str or list): List or comma-separated string of epicenter identifiers.
-    
     Returns:
         tuple: (args, initialized_variables)
             - args (Namespace): Updated command-line arguments with additional attributes such as:
@@ -63,29 +48,72 @@ def initialize_run(args):
                   - "tau_mean": Mean tau values, shape (n_regions,).
                   - Other indices such as "index_tau_to_conn" etc.
     """
-    # Load data from file
-    # ==============================
-    # Print the file path being loaded
-    print("Loading data...\nfrom: {}".format(os.path.join(args.input_path, args.input_data_name)))
-    # Load the main simulation data
-    data = pickle.load(open(os.path.join(args.input_path, args.input_data_name), 'rb'))
-    # Construct a secondary filename for Abeta-positive subjects (if available)
-    #data_all_name = os.path.join(args.input_path, args.input_data_name).replace("Input_","dataset_")
-    
     # Initialize a dictionary to store various simulation variables
     initialized_variables = { "tau": None, "roi_size": None, "index_tau_to_conn": None, "Rnor0": None}
 
-    # Process tau data: convert values to numeric; expected shape: (, n_regions)
-    initialized_variables["tau"] = data[args.simulated_protein][args.data_type].values.astype(float).reshape(-1) if args.simulated_protein in data else (_ for _ in ()).throw(ValueError("No simulated data name found in the input file."))
+    data, data_individual = load_main_data(args)
 
-    # Set epicenter_list to either provided values or default to half of the regions
+    load_tau(args, data, initialized_variables, data_individual)
+
+    load_connectivity(args, data, initialized_variables, data_individual)
+
+    setup_epicenters(args)
+
+    load_roi_size(args, data, initialized_variables, data_individual)
+
+    load_regional_variables(args, initialized_variables, data_individual)
+
+    additional_simulation_settings(args, initialized_variables)
+
+    # Print summary information about the data
     # ==============================
-    if args.epicenter_list is None: print("Set epicenter list to all the ROIs")
-    args.epicenter_list = list(range(int(args.N_regions/2))) if args.epicenter_list is None else ([x for x in args.epicenter_list.split(',')] if isinstance(args.epicenter_list, str) else args.epicenter_list)
+    print("Number of regions: {}".format(args.N_regions))
+    print("SC_len: ", args.SC_len.shape, args.SC_len)
+    print("Connectivity:",initialized_variables["conn"].shape, initialized_variables["conn"])
+    print("Epicenter list: ", type(args.epicenter_list),type(args.epicenter_list[0]), args.epicenter_list)
+
+    return args, initialized_variables
+
+
+def load_main_data(args):
+    print("Loading group data...\nfrom: {}".format(os.path.join(args.input_path, args.input_data_name)))
+    data = pickle.load(open(os.path.join(args.input_path, args.input_data_name), 'rb'))
+
+    if args.subject_id is not None:
+        print("Loading individualized data...\nfrom: {}".format(os.path.join(args.input_path, args.individual_data_file)))
+        data_individual = pickle.load(open(os.path.join(args.input_path, args.individual_data_file), 'rb'))
+    else:
+        data_individual = None
+
+    return data, data_individual
     
-    # Load connectivity information
-    # ==============================
-    # Extract connectivity matrix and region names
+    
+def load_tau(args, data, initialized_variables, data_individual=None):
+    """
+    Load tau values (group-level or individual-level).
+    convert values to numeric; expected shape: (, n_regions)
+    """
+    if args.subject_id is not None and args.simulated_protein in data_individual: ### individualized data
+        print(f"loading individualized tau for subject {args.subject_id}")
+        initialized_variables["tau"] = (data_individual["tau"][args.subject_id].astype(float).values.reshape(-1))
+    else:
+        if args.simulated_protein in data:
+            initialized_variables["tau"] = data[args.simulated_protein][args.data_type].values.astype(float).reshape(-1)
+        else:
+            raise ValueError("No simulated data name found in the input file.")
+
+def setup_epicenters(args):
+    if args.epicenter_list is None:
+        print("Set epicenter list to all the ROIs")
+        args.epicenter_list = list(range(int(args.N_regions/2)))
+    else:
+        args.epicenter_list = ([x for x in args.epicenter_list.split(',')] if isinstance(args.epicenter_list, str) else args.epicenter_list)
+
+def load_connectivity(args, data, initialized_variables, data_individual=None):
+    """
+    Load connectivity matrix and region names.
+    """
+    ### group-level
     initialized_variables["conn"] = data['conn']['conn']
     initialized_variables["name"] = pd.Series(data["conn"]["name"])
     args.N_regions = len(initialized_variables["conn"])
@@ -96,6 +124,22 @@ def initialize_run(args):
         print("No SC_len provided, need to be cautious of `v` value!")
         args.SC_len = None
 
+    load_alternative_connectivity(args, initialized_variables)
+
+    ### individualized connectivity, overwrite group-level if subject_id provided. 
+    if args.subject_id is not None:
+        print(f"loading individualized connectivity for subject {args.subject_id}")
+        initialized_variables["conn"] = data_individual["conn"][args.subject_id]
+        initialized_variables["name"] = pd.Series(data_individual["name"]) # assume the name is the same for all subjects
+        args.N_regions = initialized_variables["conn"].shape[0]
+
+        if "SC_len" in data_individual: args.SC_len = data_individual["SC_len"][args.subject_id] ### overwrite group-level SC_len if provided
+
+def load_alternative_connectivity(args, initialized_variables):
+    """
+    Load alternative connectivity matrix if specified in args.
+    Group level only.
+    """
     # If an alternative connectivity matrix (SC) is specified in args, load and update the connectivity data
     if args.SC is not None:
         print("load", args.SC, "from", args.connectivity_file)
@@ -105,10 +149,10 @@ def initialize_run(args):
             initialized_variables["conn"] = conn_matrix[args.SC][int(args.null_model_i)]
         else:
             initialized_variables["conn"] = conn_matrix[args.SC]
-        if len(conn_matrix["labels"]) != len(data["conn"]["name"]): # match name and index
+        if len(conn_matrix["labels"]) != len(initialized_variables["name"]): # match name and index
+            initialized_variables["index_tau_to_conn"] = match_and_update(conn_matrix["labels"], initialized_variables["name"])
             initialized_variables["name"] = conn_matrix["labels"]
-            initialized_variables["index_tau_to_conn"] = match_and_update(initialized_variables["name"], data["conn"]["name"])
-            initialized_variables["tau"] = initialized_variables["tau"].iloc[:,initialized_variables["index_tau_to_conn"]]
+            initialized_variables["tau"] = initialized_variables["tau"][initialized_variables["index_tau_to_conn"]] # already 1d, .iloc[:,initialized_variables["index_tau_to_conn"]]
         print("matched tau:", initialized_variables["tau"].shape)
         if args.SC_len is not None: 
             if args.SC in ["sc","SC"] or "structural" in args.SC:
@@ -118,14 +162,17 @@ def initialize_run(args):
     elif args.null_model_i is not None:
         raise ValueError("Null model index provided but no null connectivity is specified.")
 
-    # Process ROI size information
-    # ==============================
+def load_roi_size(args, data, initialized_variables, data_individual=None):
     # If ROI_size is provided as a dictionary, extract its values; otherwise, process as an array-like structure
     if isinstance(data['conn']['ROI_size'], dict):
         roi_values = list(data['conn']['ROI_size'].values())
     else: # ndarray or dataframe or series
         raise ValueError("ROI_size should be a dictionary")
     
+    if args.subject_id is not None: # replace with individualized ROI_size if provided
+        print(f"loading individualized roi_size for subject {args.subject_id}")
+        roi_values = data_individual["roi_size"][args.subject_id]
+
     # If no uniform ROI size is specified, use the provided ROI sizes; otherwise, set ROI size to a constant value
     if args.same_ROI_size is None:
         initialized_variables["roi_size"] = np.array(roi_values).reshape(-1,)
@@ -133,13 +180,14 @@ def initialize_run(args):
         number = int(np.mean(roi_values)) if args.same_ROI_size == 'mean' else int(args.same_ROI_size)
         print("setting ROI_size to the same value:", number)
         initialized_variables["roi_size"]= np.full(data['conn']['conn'].shape[0], number)
+
     if initialized_variables["index_tau_to_conn"] is not None: # if tau and conn not match
         initialized_variables["roi_size"] = initialized_variables["roi_size"][initialized_variables["index_tau_to_conn"]]
    
+def load_regional_variables(args, initialized_variables, data_individual=None):
 
-    # Load and process regional gene data if specified
-    # ==============================
     if any(isinstance(getattr(args, var), str) for var in ["spread_var", "synthesis_var", "misfold_var", "clearance_nor_var", "clearance_mis_var", "FC"]):
+
         df_genes = pd.read_csv(os.path.join(args.input_path, args.regional_variable_file),index_col=[0])
         df_genes = match_and_update(initialized_variables["name"], df_genes)
 
@@ -155,12 +203,18 @@ def initialize_run(args):
                 print(f"{var.split('_')[0]} rate {variable} from {args.regional_variable_file}: {type(getattr(args, var))} {getattr(args, var)}")
             elif isinstance(variable, np.ndarray):
                 print(f"Add {var.split('_')[0]} rate (input in the previous run)")
-    
-    # Set up for Additional simulation settings
-    # ==============================
+        
+            if args.subject_id is not None: # replace with individualized regional variables if provided
+                if isinstance(variable, str):
+                    print(f"loading individualized {var} for subject {args.subject_id}")
+                    values = data_individual[variable][args.subject_id].values
+                    setattr(args, var, values)
+
+def additional_simulation_settings(args, initialized_variables):   
     # Process intermediate variable names if needed
     if args.return_interm_results and isinstance(args.interm_variabels, str):
         args.interm_variabels = args.interm_variabels.split(",")
+
     # Initialize Rnor0 based on the given specification
     if args.Rnor0 is not None:
         print("Initialize Rnor0 for _norm_spread:", args.Rnor0, end="\t")
@@ -176,15 +230,6 @@ def initialize_run(args):
         args.no_norm_spread = True
         print(initialized_variables["Rnor0"].shape)    
     elif args.no_norm_spread == True: print("Stop spread of normal protein in _mis_spread process")
-
-    # Print summary information about the data
-    # ==============================
-    print("Number of regions: {}".format(args.N_regions))
-    print("SC_len: ", args.SC_len.shape, args.SC_len)
-    print("Connectivity:",initialized_variables["conn"].shape, initialized_variables["conn"])
-    print("Epicenter list: ", type(args.epicenter_list),type(args.epicenter_list[0]), args.epicenter_list)
-
-    return args, initialized_variables
 
 
 def match_and_update(label_conn, data_to_update):

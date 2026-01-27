@@ -128,6 +128,26 @@ python run_null_model.py --model_name MySIRmodel_null_model0-1 --SC neurotransmi
 
 This script iterates over all null brain connectivities, treating each as a separate null model iteration, performs hyperparameter tuning for each iteration, and consolidates the simulation results.
 
+#### Individual model
+Run the SIR model using **individualized (subject-level) data**, execute:
+```bash
+python run_individualized.py --individual_data_file data_individual.pkl
+```
+Or add the parameter in `User_input_settings.txt`: individual_data_file = "data_individual.pkl"
+
+This will run the SIR model separately for each subject, using subject-specific inputs (e.g., tau, connectivity, ROI size, and regional vulnerability variables) provided in the individual data file.
+
+The list of subjects to be simulated must be provided in a text file named: `Subject_IDs.txt`.
+**Format requirements:**
+- One subject ID per line
+- Subject IDs must match the column names / dictionary keys used in data_individual.pkl
+
+Example:
+```bash
+subj_001
+subj_002
+subj_003
+```
 
 ### 3. Result Summarization
 

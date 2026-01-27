@@ -200,3 +200,49 @@ def set_contour(ax=None, lw=1):
     ax.spines['right'].set_visible(False)
 
     return ax
+
+
+def compute_prediction_metrics(pred, true, print_flag=False):
+    """
+    Compute prediction metrics between pred and true.
+
+    Metrics: Pearson r, MAE (after min-max scaling pred to true),
+    R^2 (fitted, not sklearn), Explained variance
+
+    Args:
+        pred (np.ndarray): predicted values, shape (n,)
+        true (np.ndarray): true values, shape (n,)
+
+    Returns:
+        dict with keys: ['pearsonr', 'mae', 'r2', 'explained_variance']
+    """
+    pred = np.asarray(pred).ravel()
+    true = np.asarray(true).ravel()
+
+    # Pearson correlation
+    r = np.corrcoef(pred, true)[0, 1]
+
+    # Min-max scale pred to match true
+    pred_scaled = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
+    pred_scaled = pred_scaled * (true.max() - true.min()) + true.min()
+
+    mae = np.mean(np.abs(pred_scaled - true))
+
+    # Fitted R^2 (least-squares scaling)
+    beta = np.dot(pred, true) / np.dot(pred, pred)
+    pred_fit = beta * pred
+    ss_res = np.sum((true - pred_fit) ** 2)
+    ss_tot = np.sum((true - true.mean()) ** 2)
+    r2 = 1 - ss_res / ss_tot
+
+    # Explained variance
+    explained_variance = 1 - np.var(true - pred_fit) / np.var(true)
+
+    metrics = {"pearsonr": r, "mae": mae, "r2": r2,
+               "explained_variance": explained_variance}
+    if print_flag:
+        print("Prediction metrics:")
+        for key, value in metrics.items():
+            print(f"  {key}: {value:.4f}")
+            
+    return metrics

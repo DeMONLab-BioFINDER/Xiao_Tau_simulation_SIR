@@ -21,11 +21,14 @@ import time
 import pickle
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from brokenaxes import brokenaxes
 from joblib import Parallel, delayed
 from sklearn.metrics import mean_squared_error
 
 from src.evaluation import get_top_rois, compute_metric, plot_interm_difference
-from src.utils import plot_scatter_across_time, plot_line, scatter_pred_true
+from src.utils import plot_scatter_across_time, plot_line, scatter_pred_true, compute_prediction_metrics
 
 class ResultsTracker:
     """
@@ -183,20 +186,18 @@ class TuningResultsTracker:
 
         # Initialize storage structures
         self.y = None
-        self.r_dict = {"simulation":{self.checked_epicenter: {"combinations":[],"max_r_across_time":[-1000]}},
-                       "Rmis":{self.checked_epicenter: {"combinations":[],"max_r_across_time":[-1000]}},
-                       "max":{}}
+        self.r_dict = {"simulation":{self.checked_epicenter: {"combinations":[],"max_r_each_run":[-1000], "max":[], 'max_indices':[]}},
+                       "Rmis":{self.checked_epicenter: {"combinations":[],"max_r_each_run":[-1000], "max":[], 'max_indices':[]}}}
         self.best_combination = {"simulation":{self.checked_epicenter:{}}, "Rmis":{self.checked_epicenter:{}}}
         self.simulated_data = {"simulation":[], "Rmis":[]}
 
-    def update(self, combination, combination_i, simulated_data, tau_mean, results_tmp):
+    def update(self, combination, simulated_data, tau_mean, results_tmp):
         """
         Update results with new simulation data and calculate correlations.
 
         Args:
             combination (tuple): Current hyperparameter combination.
-            combination_i (int): Index of the combination.
-            simulated_data (dict): Dictionary of simulation results.
+            sim_results (dict): Dictionary of simulation results.
             tau_mean (np.ndarray): Mean tau values, shape (n_regions, ).
             results_tmp (dict): Intermediate simulation results.
         """
@@ -204,9 +205,9 @@ class TuningResultsTracker:
         for result_type in simulated_data:
             print("evaluate for",result_type)
             self.simulated_data[result_type].append(simulated_data[result_type][str(self.checked_epicenter)])
-            self.get_r_across_time(simulated_data[result_type][str(self.checked_epicenter)],
-                                   result_type, combination, results_tmp) 
-            print("max r:", self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"][-1])
+            get_r_across_time(simulated_data[result_type][str(self.checked_epicenter)],
+                              result_type, combination, results_tmp) 
+            print("max r:", self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][-1])
 
             if self.mean_scatter_times_list is not None: self.scatter_plot_across_time(combination, simulated_data, result_type)
     
@@ -240,8 +241,8 @@ class TuningResultsTracker:
                 pickle.dump(self.best_combination[result_type], f, protocol=4)
         end = time.time()
         print(f"saving time: {end - start}/60 mins")
-    
-    def get_r_across_time(self, predictions, result_type, combination, results_tmp):
+    '''    
+    def get_r_across_time(self, predictions, result_type, combination, results_tmp_all):
         """
         Calculate the Pearson correlation across time between predicted and observed data.
 
@@ -258,13 +259,13 @@ class TuningResultsTracker:
         # Track the combination and update the best combination if necessary
         self.r_dict[result_type][self.checked_epicenter]["combinations"].append(combination)
         r_max_tmp = np.nanmax(self.r_dict[result_type][self.checked_epicenter][combination])
-        if r_max_tmp >= np.nanmax(self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"]): #len(r_dict_tmp[epicenter]["max"])==0 or 
+        if r_max_tmp >= np.nanmax(self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"]): #len(r_dict_tmp[epicenter]["max"])==0 or 
             self.best_combination[result_type][self.checked_epicenter]["max_pattern"] = predictions
             self.best_combination[result_type][self.checked_epicenter]["max_combination"] = combination
-            self.best_combination[result_type][self.checked_epicenter]["max_results_tmp"] = results_tmp
-            print("updated max combination:", combination, r_max_tmp, "original:",self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"][-1])
-        self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"].append(r_max_tmp)
-
+            self.best_combination[result_type][self.checked_epicenter]["max_results_tmp"] = results_tmp_all
+            print("updated max combination:", combination, r_max_tmp, "original:",self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][-1])
+        self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"].append(r_max_tmp)
+    '''
     def get_best_params(self, result_type):
         """
         Identify and return the best hyperparameter combination based on maximum correlation.
@@ -275,8 +276,8 @@ class TuningResultsTracker:
         Returns:
             tuple: (max_r_list, ind_max_param, pred_best)
         """
-        self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"] = self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"][1:] # remove the first 0
-        ind_max_param = np.nanargmax(self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"]) #, axis=0)
+        self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"] = self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][1:] # remove the first 0
+        ind_max_param = np.nanargmax(self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"]) #, axis=0)
         max_r_list = self.r_dict[result_type][self.checked_epicenter][self.param_combinations[ind_max_param]]
         max_time = np.nanargmax(max_r_list)
         max_r = np.nanmax(max_r_list)
@@ -284,7 +285,7 @@ class TuningResultsTracker:
         self.best_combination[result_type][self.checked_epicenter]["pred_best"] = pred_best
         self.r_dict["max"][result_type] = max_r
 
-        print("max_r_across_time:",len(self.r_dict[result_type][self.checked_epicenter]["max_r_across_time"]))
+        print("max_r_across_time:",len(self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"]))
         print("max combination is:", self.param_combinations[ind_max_param], max_r)
 
         return max_r_list, ind_max_param, pred_best
@@ -331,5 +332,169 @@ class TuningResultsTracker:
                                  self.checked_epicenter, checked_times,
                                   scatter_plot_path+"/"+model_name+"_"+result_type)
 
+
+class IndividualResultsTracker:
+    """
+    Track per-individual prediction performance.
+    """
+
+    def __init__(self, args):
+        """
+        Initialize the IndividualResultsTracker object with given arguments and subject list.
+
+        Args:
+            args (Namespace): Parsed arguments containing model settings.
+        """
+        self.checked_epicenter = [x for x in args.epicenter_list.split(",")][0] if isinstance(args.epicenter_list, str) else args.epicenter_list[0]
+        self.mean_scatter_times_list = args.mean_scatter_times_list
+        self.n_jobs = args.n_jobs
+        self.T_total = args.T_total
+        self.output_path = args.output_path
+
+        # Initialize storage structures
+        self.r_dict = {"simulation":{self.checked_epicenter: {"subjects": [], "max_r_each_run":[-1000], "max":[], 'max_indices':[]}},
+                       "Rmis":{self.checked_epicenter: {"subjects": [], "max_r_each_run":[-1000], "max":[], 'max_indices':[]}}}
+        self.best_results = {"tau_true":{}, "simulation":{self.checked_epicenter:{}}, "Rmis":{self.checked_epicenter:{}}}
+        self.metrics = {"simulation":pd.DataFrame(), "Rmis":pd.DataFrame()}
+
+    def update(self, subj, simulated_data, tau_subj, results_tmp):
+        """
+        Update results with new simulation data and calculate correlations.
+
+        Args:
+            subj (str): current subject ID.
+            simulated_data[result_type][str(self.checked_epicenter)] (np.ndarray): Predicted values for each time point, shape (n_regions, T_total).
+            tau_subj (np.ndarray): tau values for current subject, shape (n_regions, ).
+            results_tmp (dict): Intermediate simulation results.
+        """
+        for result_type in simulated_data:
+            print("evaluate for",result_type)
+            predictions = simulated_data[result_type][str(self.checked_epicenter)]
+            get_r_across_time(self, predictions, tau_subj, result_type, subj, results_tmp) 
+            print("max r:", self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][-1])
+            plot_r_across_time(self.r_dict[result_type][self.checked_epicenter][subj], out_file=self.output_path + f'/Simulation_performance_overtime_{result_type}-{self.checked_epicenter}-{subj}.png')
+
+            # get best prediction for this subject
+            best_sim_data_ind = self.r_dict[result_type][self.checked_epicenter]['max_indices'][-1]
+            prediction_best = predictions[:, best_sim_data_ind]
+            self.best_results[result_type][self.checked_epicenter][subj] = prediction_best
+            plot_regional_scatter(tau_subj, prediction_best, out_file=self.output_path + f'/Best_time_performance_{result_type}-{self.checked_epicenter}-{subj}.png')
+
+            # get metrics for this subject
+            metrics = compute_prediction_metrics(tau_subj, prediction_best, print_flag=True)
+            self.metrics[result_type].loc[subj, metrics.keys()] = metrics
+
+        self.best_results['tau_true'][subj] = tau_subj
+
+        # save for this subject
+        pickle.dump(results_tmp, open(os.path.join(self.output_path, "Results_all_" + subj + ".pkl"), "wb"))
+    
+    def summary(self):
+        """
+        Print and summarize the average for each result type.
+        """
+        for result_type in self.metrics:
+            print("*"*5,result_type,"*"*5)
+            # ---- summary stats ----
+            for k, v in self.metrics[result_type].items():
+                v = np.asarray(v)
+                print(f"{k:20s} "
+                      f"mean={np.nanmean(v):.4f}, "
+                      f"std={np.nanstd(v):.4f}, "
+                      f"min={np.nanmin(v):.4f}, "
+                      f"max={np.nanmax(v):.4f}")
+
+            df = pd.DataFrame(self.metrics[result_type]).melt(var_name="metric", value_name="value")
+
+            # ---- plot ----
+            title = f"Summary of prediction metrics across subjects ({result_type})"
+            out = os.path.join(self.output_path, f"Summary_prediction_metrics_{result_type}.png")
+            plt.figure(figsize=(8, 5), dpi=300)
+            sns.boxplot(x="metric", y="value", data=df, showfliers=False)
+            sns.stripplot(x="metric", y="value", data=df, color="black", alpha=0.6, jitter=True)
+            plt.ylabel("Value")
+            plt.title(title)
+            plt.tight_layout()
+            plt.savefig(out)
+            plt.close()
+
+    def save(self):
+        """
+        Save the best hyperparameter combinations and simulated data to `self.output_path`.
+        """
+        start = time.time()
+
+        # Save best results for all subjects
+        for key in self.best_results:
+            if key != "tau_true":
+                for epi in self.best_results[key]:
+                    pd.DataFrame(self.best_results[key][epi]).to_csv(os.path.join(self.output_path, f"Summary_best_results_{key}_{epi}.csv"))
+            else:
+                pd.DataFrame(self.best_results[key]).to_csv(os.path.join(self.output_path, f"Summary_true_tau_values.csv"))
+        
+        # Save metrics for all subjects
+        for key in self.metrics:
+            self.metrics[key].to_csv(os.path.join(self.output_path, f"Summary_prediction_metrics_{key}.csv"))
+        
+        # Save performance metrics for the current result type
+        with open(os.path.join(self.output_path, "Summary_model_performance_r_across_time.pkl"), "wb") as f:
+            pickle.dump(self.r_dict, f, protocol=4)
+        
+        end = time.time()
+        print(f"saving time: {end - start}/60 mins")
+
+    
+def get_r_across_time(tracker, predictions, true, result_type, config, results_tmp_all):
+    """
+    Calculate the Pearson correlation across time between predicted and observed data.
+
+    Args:
+        predictions (np.ndarray): Predicted values for each time point, shape (n_regions, T_total).
+        result_type (str): Type of result ('simulation' or 'Rmis').
+        config (tuple or str): Current configuration (e.g., hyperparameter set or subject-specific combination).
+        results_tmp_all (dict): Intermediate results all, containing "Pnor0", "Rnor0", "Rnor_all", "Rmis_all" from results of simulated_atrophy and results_tmp from simulated_atrophy._mis_spread().
+    """
+    config_type = 'combinations' if tracker.__class__.__name__ == 'TuningResultsTracker' else 'subjects'
+
+    # Parallel computation of Pearson correlation across all time points
+    tracker.r_dict[result_type][tracker.checked_epicenter][config] = Parallel(n_jobs=tracker.n_jobs)(
+        delayed(lambda x: float(x))(compute_metric("pearsonr", true, predictions[:,i])) for i in range(predictions.shape[1]))
+        
+    # best performed r across time for the current configuration
+    tracker.r_dict[result_type][tracker.checked_epicenter][config_type].append(config)
+    r_max_tmp = np.nanmax(tracker.r_dict[result_type][tracker.checked_epicenter][config])
+    tracker.r_dict[result_type][tracker.checked_epicenter]["max_r_each_run"].append(r_max_tmp)
+    tracker.r_dict[result_type][tracker.checked_epicenter]['max_indices'].append(np.nanargmax(tracker.r_dict[result_type][tracker.checked_epicenter][config]).astype(int))
+
+    # Track the combination and update the best combination for hyperparameter tuning
+    if config_type == 'combinations': # track best hyperparameter
+        if r_max_tmp >= np.nanmax(tracker.r_dict[result_type][tracker.checked_epicenter]["max_r_each_run"]): #len(r_dict_tmp[epicenter]["max"])==0 or 
+            tracker.best_combination[result_type][tracker.checked_epicenter]["max_pattern"] = predictions
+            tracker.best_combination[result_type][tracker.checked_epicenter]["max_combination"] = config
+            tracker.best_combination[result_type][tracker.checked_epicenter]["max_results_tmp"] = results_tmp_all
+        print("updated max combination:", config, r_max_tmp, "original:",tracker.r_dict[result_type][tracker.checked_epicenter]["max_r_each_run"][-1])
+
+
+def plot_r_across_time(r_values, out_file):
+    sns.lineplot(x=range(len(r_values)), y=r_values)
+    plt.xlabel("Time")
+    plt.ylabel("Pearson r")
+    plt.title("simulation performance over time")
+    plt.tight_layout()
+    plt.savefig(out_file, dpi=300)
+    plt.close()
+
+def plot_regional_scatter(tau_true, tau_pred, out_file):
+    tau_true = np.asarray(tau_true).ravel()
+    tau_pred = np.asarray(tau_pred).ravel()
+
+    sns.regplot(x=tau_true, y=tau_pred, scatter_kws={"s": 20, "alpha": 0.7}, color='grey')
+
+    plt.xlabel("Observed tau")
+    plt.ylabel("Simulated tau")
+
+    plt.tight_layout()
+    plt.savefig(out_file, dpi=300)
+    plt.close()
 
 
