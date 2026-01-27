@@ -138,6 +138,7 @@ Or add the parameter in `User_input_settings.txt`: individual_data_file = "data_
 This will run the SIR model separately for each subject, using subject-specific inputs (e.g., tau, connectivity, ROI size, and regional vulnerability variables) provided in the individual data file.
 
 The list of subjects to be simulated must be provided in a text file named: `Subject_IDs.txt`.
+
 **Format requirements:**
 - One subject ID per line
 - Subject IDs must match the column names / dictionary keys used in data_individual.pkl
