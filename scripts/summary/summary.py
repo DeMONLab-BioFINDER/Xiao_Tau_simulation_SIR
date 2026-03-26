@@ -75,6 +75,13 @@ def find_directories_containing_string(base_path, search_string):
             - Otherwise, returns a dictionary where each key is derived from the folder name (using regex if applicable)
               and the value is the full directory path.
     """
+    # If base_path is the leaf folder containing the result, return it directly
+    base_name = os.path.basename(os.path.normpath(base_path))
+    match = re.match(r"(.+?)_\d{8}_\d{6}$", base_name)
+    if match:
+        key = match.group(1)
+        return {key: base_path}
+    
     # Define the substrings to check for in the search string.
     var_list = ["synthesis-", "spread-", "misfold-", "clearance-"]
 

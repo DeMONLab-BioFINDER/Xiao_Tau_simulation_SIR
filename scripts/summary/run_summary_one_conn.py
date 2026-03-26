@@ -90,22 +90,24 @@ def summarize_one_conn(args):
             print("Best hyperparam:", results[args.epicenter]['max_combination'])
             # Retrieve the prediction pattern across time
             pred_across_time = results[args.epicenter]['max_pattern']
+            hyperparam = results[args.epicenter]["max_combination"]
         else:
             matching_files = [f for f in os.listdir(path) if f.startswith("simulated_atrophy_all_")]
             results = pickle.load(open(os.path.join(path, matching_files[0]),'rb'))
             pred_across_time = results["simulation"][args.epicenter]
+            hyperparam = "N/A"
         # Calculate Pearson correlation for each time point
         df_max_r_list[model] = [pearsonr(tau_mean, pred_across_time[:, i])[0] for i in range(pred_across_time.shape[1])]
         
         # Compute metrics at the best time point
         best_time = np.nanargmax(df_max_r_list[model])
         print("best time:", best_time)
-        pred = results[args.epicenter]['pred_best']
+        pred = results["simulation"][args.epicenter][:, best_time] #results[args.epicenter]['pred_best']
         scaled_pred = ((pred - np.nanmin(pred)) / (np.nanmax(pred) - np.nanmin(pred))) * (np.nanmax(tau_mean) - np.nanmin(tau_mean)) + np.nanmin(tau_mean)
         
         df_results[model] = pred
         df_results[model + "_scaled"] = scaled_pred
-        df_metrics[model] = [best_time, results[args.epicenter]["max_combination"],
+        df_metrics[model] = [best_time, hyperparam,
                              pearsonr(tau_mean, pred)[0], pearsonr(tau_mean, pred)[1],
                              mean_squared_error(tau_mean, scaled_pred)]
     
@@ -115,7 +117,8 @@ def summarize_one_conn(args):
     df_metrics = df_metrics.T
     df_metrics.to_csv(os.path.join(args.result_path, "Fig2_Metrics.csv"))
     
-    print(df_results)
+    #print(df_metrics)
+    #print(df_max_r_list)
     
     return df_metrics, df_max_r_list, df_results
 

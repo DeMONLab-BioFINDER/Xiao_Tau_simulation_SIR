@@ -54,9 +54,9 @@ def hypertune(args):
     # Define the hyperparameter grid for tuning
     #########################################  suggested range, !CHANGE ONLY IF NEEDED!
     param_grid = {
-        'p_stay': [0.01, 0.05, 0.1, 0.3, 0.5, 0.7, 0.9],
-        'trans_rate': [0.1, 0.5, 0.9, 1, 1.5, 1.9, 2, 2.5, 2.9, 3],
-        'v': [0.1, 0.3, 0.5, 0.7, 0.9, 1]
+        'p_stay': [0.01, 0.05], #, 0.1, 0.3, 0.5, 0.7, 0.9],
+        'trans_rate': [0.1],# 0.5, 0.9, 1, 1.5, 1.9, 2, 2.5, 2.9, 3],
+        'v': [0.1] #, 0.3, 0.5, 0.7, 0.9, 1]
     }
     ######################################### 
     # Generate all combinations of hyperparameters

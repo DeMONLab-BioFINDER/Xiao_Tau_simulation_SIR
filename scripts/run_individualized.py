@@ -86,7 +86,7 @@ def main():
     """
     # Setting up input arguments
     print("Basic arguments setting")    
-    args = parse_arguments(hypertune=True)
+    args = parse_arguments(hypertune=False) # hypertune=False for individualized simulation, hypertune=True for hyperparameter tuning
     args.return_flag = True # Whether to return results in `run_model(args)` function
 
     # Setting up logging

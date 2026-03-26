@@ -6,10 +6,10 @@ This repository contains Python code for an agent-based Susceptible-Infectious-R
 
 Our model builds upon the original [SIR simulator](https://github.com/yingqiuz/SIR_simulator) by <u>Ying-Qiu Zheng</u>. This mechanistic framework simulates based on both **connectome-based spread** and **regional vulnerability** across brain regions, enabling in silico testing of distinct pathophysiological mechanisms via tunable regional parameters affecting tau *synthesis* and *clearance*.
 
-### Key Enhancements
+## Key Enhancements
 We extend the original SIR framework to allow **regional vulnerability** not only modify tau synthesis and clearance, but also tau *spread* and *misfolding* rates. This refined model allows for more realistic simulations of disease progression.
 
-### Data Sources
+## Data Sources
 We gratefully acknowledge:
 - <u>Justine Hansen</u> for providing human brain connectivity ([link](https://github.com/netneurolab/hansen_many_networks/tree/v1.0.0)) and regional neurotransmitter receptor data ([link](https://github.com/netneurolab/hansen_receptors))
 - [Allen Human Brain Atlas](https://human.brain-map.org/) for gene expression data (e.g., MAPT, APOE)
@@ -18,7 +18,7 @@ We gratefully acknowledge:
 The framework supports hyperparameter tuning, null model simulations, and automated summarization of simulation outputs.
 
 
-## Directory Structure
+# Directory Structure
 
 - **Script Directory:**  
   All scirpts used are in `scripts/`.
@@ -61,9 +61,9 @@ project/
 └── results/
 ```
 
-## Installation
+# Installation
 
-### Requirements
+## Requirements
 
 This project requires Python 3.7 or later along with the following packages:
 
@@ -83,9 +83,9 @@ source simulation_env/bin/activate
 pip install -r requirements.txt
 ```
 
-## Usage
+# Usage
 
-### 1. Configuration
+## 1. Configuration
 Simulation parameters and settings are defined in `User_input_settings.txt`. Modify this file to set parameters such as:
 ```text
 model_name = "Your_model_name"            # Model name - use in output folder name
@@ -98,11 +98,16 @@ protein_type = "Presence"                 # Simulated protein type, dataframe co
 Detailed parameters and hyperparameters are listed in `src/params.py`.
 Adjust these values according to your experimental setup.
 
-### 2. Running the SIR model
+## 2. Running the SIR model
+### A. Group-avegraged data
 #### Single Run
 Run a single SIR model, execute:
 ```bash
 python run.py
+```
+or you could also change simulation parameters here:
+```bash
+python run.py --model_name SC-only --epicenter_list ctx_lh_entorhinal
 ```
 #### Hyperparameter Tuning
 Run the SIR model with hyperparameters tunning, execute:
@@ -128,8 +133,10 @@ python run_null_model.py --model_name MySIRmodel_null_model0-1 --SC neurotransmi
 
 This script iterates over all null brain connectivities, treating each as a separate null model iteration, performs hyperparameter tuning for each iteration, and consolidates the simulation results.
 
-#### Individual model
-Run the SIR model using **individualized (subject-level) data**, execute:
+### B. Individual-level data
+#### running with pre-defined best hyperparmeters set
+
+Run the SIR model using **individualized (subject-level) data** for all participants, execute:
 ```bash
 python run_individualized.py --individual_data_file data_individual.pkl
 ```
@@ -137,18 +144,21 @@ Or add the parameter in `User_input_settings.txt`: individual_data_file = "data_
 
 This will run the SIR model separately for each subject, using subject-specific inputs (e.g., tau, connectivity, ROI size, and regional vulnerability variables) provided in the individual data file.
 
-The list of subjects to be simulated must be provided in a text file named: `Subject_IDs.txt`.
+***Note:*** 
+* The hyperparameter must be pre-defined here, or else will use the default hyperparameters. Please define the hyperparaemters set that fits your group of data the best. You can run `A. Group-avegraged data` - `Hyperparameter Tuning` on your group-averaged data first to get the best hyperparameters set.
 
-**Format requirements:**
-- One subject ID per line
-- Subject IDs must match the column names / dictionary keys used in data_individual.pkl
+* The list of subjects to be simulated must be provided in a text file named: `Subject_IDs.txt`.
 
-Example:
-```bash
-subj_001
-subj_002
-subj_003
-```
+  **Format requirements:**
+  - One subject ID per line
+  - Subject IDs must match the column names / dictionary keys used in data_individual.pkl
+
+  Example:
+  ```bash
+  subj_001
+  subj_002
+  subj_003
+  ```
 
 ### 3. Result Summarization
 
