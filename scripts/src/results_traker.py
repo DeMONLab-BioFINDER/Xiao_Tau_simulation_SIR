@@ -205,7 +205,7 @@ class TuningResultsTracker:
         for result_type in simulated_data:
             print("evaluate for",result_type)
             self.simulated_data[result_type].append(simulated_data[result_type][str(self.checked_epicenter)])
-            get_r_across_time(simulated_data[result_type][str(self.checked_epicenter)],
+            get_r_across_time(self, simulated_data[result_type][str(self.checked_epicenter)], self.y,
                               result_type, combination, results_tmp) 
             print("max r:", self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][-1])
 
@@ -283,7 +283,7 @@ class TuningResultsTracker:
         max_r = np.nanmax(max_r_list)
         pred_best = self.best_combination[result_type][self.checked_epicenter]["max_pattern"][:,max_time]
         self.best_combination[result_type][self.checked_epicenter]["pred_best"] = pred_best
-        self.r_dict["max"][result_type] = max_r
+        self.r_dict[result_type][self.checked_epicenter]["max"] = max_r
 
         print("max_r_across_time:",len(self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"]))
         print("max combination is:", self.param_combinations[ind_max_param], max_r)

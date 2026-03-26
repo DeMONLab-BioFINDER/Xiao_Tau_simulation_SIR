@@ -76,7 +76,7 @@ def hypertune(args):
         simulated_data, tau_mean, results_tmp = run_model(args)
 
         # Store the results and clear memory
-        hyper_results.update(combination, i, simulated_data, tau_mean, results_tmp)
+        hyper_results.update(combination, simulated_data, tau_mean, results_tmp)
         clear_memory(simulated_data, tau_mean, results_tmp)
     
     # End of tuning process
