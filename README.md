@@ -162,7 +162,9 @@ This will run the SIR model separately for each subject, using subject-specific 
 
 ### 3. Result Summarization
 
-***Note:***  Need to reconfigure in each run file, namely `summary/run_summary_one_conn.py` and `summary/run_summary_all_conns.py`.
+***Note:***  
+* Need to reconfigure in each run file, namely `summary/run_summary_one_conn.py` and `summary/run_summary_all_conns.py`.
+* `--result_path` could be the <u>*extact path*</u> for one run of the model, or a <u>*parent folder*</u> that contains folders of multiple runs that you would like to summarize together
 
 #### Summarize for Single Connectivity
 To summarize results for a single brain connectivity and regional vulnerabilities (e.g., as shown in **Fig.2**), run the following command to extract and aggregate simulation evaluation metrics:
